@@ -3,5 +3,4 @@ pragma solidity ^0.8.20;
 
 contract UniswapV2Pair {
     uint256 public a;
-    uint256 public b;
 }
