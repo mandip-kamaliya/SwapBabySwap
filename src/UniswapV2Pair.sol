@@ -6,7 +6,7 @@ import "lib/solmate/src/utils/FixedPointMathLib.sol";
 //Interface
 
 interface IERC20 {
-    function Transfer(address _to, uint256 _amount) external returns (bool);
+    function transfer(address _to, uint256 _amount) external returns (bool);
     function TransferFrom(address _from, address _to, uint256 _amount) external returns (bool);
     function balanceOf(address _account) external returns (uint256);
 }
@@ -22,6 +22,13 @@ contract UniswapV2Pair is ERC20 {
 
     uint256 public constant MIN_LIQUIDITY = 10 ** 3;
     bool private isLocked = true;
+
+    modifier nonReentrant() {
+        require(isLocked, "Pair: LOCKED");
+        isLocked = false;
+        _;
+        isLocked = true;
+    }
 
     //constructor
     constructor() ERC20("SwapBabySwap-LP", "SBS-LP", 18) {
@@ -69,5 +76,30 @@ contract UniswapV2Pair is ERC20 {
     function _update(uint256 _Balance0, uint256 _Balance1) private {
         reserve0 = _Balance0;
         reserve1 = _Balance1;
+    }
+
+    function swap(uint256 amount0Out, uint256 amount1Out, address to) external nonReentrant {
+        require(amount0Out > 0 || amount1Out > 0, "Pair: INSUFFICIENT_OUTPUT_AMOUNT");
+        (uint112 _reserve0, uint112 _reserve1) = getReserve();
+        require(amount0Out < _reserve0 && amount1Out < _reserve1, "Pair: INSUFFICIENT_LIQUIDITY");
+
+        if (amount0Out > 0) IERC20(token0).transfer(to, amount0Out);
+        if (amount1Out > 0) IERC20(token1).transfer(to, amount1Out);
+
+        uint256 balance0 = IERC20(token0).balanceOf(address(this));
+        uint256 balance1 = IERC20(token1).balanceOf(address(this));
+
+        uint256 amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
+        uint256 amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
+        require(amount0In > 0 || amount1In > 0, "Pair: INSUFFICIENT_INPUT_AMOUNT");
+
+        uint256 balance0Adjusted = balance0 * 1000 - (amount0In * 3);
+        uint256 balance1Adjusted = balance1 * 1000 - (amount1In * 3);
+        require(
+            balance0Adjusted * balance1Adjusted >= uint256(_reserve0) * uint256(_reserve1) * (1000 ** 2),
+            "Pair: K_INVARIANT_FAILED"
+        );
+
+        _update(balance0, balance1);
     }
 }
