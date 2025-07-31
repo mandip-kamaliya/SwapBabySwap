@@ -126,4 +126,6 @@ contract UniswapV2Pair is ERC20 {
         uint256 balance1 = IERC20(_token1).balanceOf(address(this));
         _update(balance0, balance1);
     }
+
+    // 3. Get the new balances after the transfer
 }

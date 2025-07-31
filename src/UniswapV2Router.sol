@@ -12,11 +12,14 @@ interface IUniswapV2Pair {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function mint(address to) external returns (uint256);
     function burn(address to) external returns (uint256 amount0, uint256 amount1);
+    function getReserve() external view returns (uint112 reserve0, uint112 reserve1);
+    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
 
 interface IERC20 {
     function approve(address spender, uint256 value) external returns (bool);
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
 }
 
 contract UniswapV2Router {
@@ -53,6 +56,32 @@ contract UniswapV2Router {
                 )
             )
         );
+    }
+
+    function getAmountOut(uint256 amountIn, uint112 reserve0, uint112 reserve1)
+        internal
+        pure
+        returns (uint256 amountOut)
+    {
+        require(amountIn > 0, "Router: INSUFFICIENT_INPUT_AMOUNT");
+        uint256 amountInWithFee = amountIn * 997;
+        uint256 numerator = amountInWithFee * reserve1;
+        uint256 denominator = (reserve0 * 1000) + amountInWithFee;
+        amountOut = numerator / denominator;
+    }
+
+    function _swap(address[] memory path, address _to) internal {
+        (address input, address output) = (path[0], path[1]);
+        (address token0,) = sortTokens(input, output);
+
+        (uint112 reserve0, uint112 reserve1) = IUniswapV2Pair(pairFor(input, output)).getReserve();
+
+        uint256 amountIn = IERC20(input).balanceOf(pairFor(input, output)) - reserve0;
+        uint256 amountOut = getAmountOut(amountIn, reserve0, reserve1);
+
+        (uint256 amount0Out, uint256 amount1Out) = input == token0 ? (uint256(0), amountOut) : (amountOut, uint256(0));
+
+        IUniswapV2Pair(pairFor(input, output)).swap(amount0Out, amount1Out, _to, new bytes(0));
     }
 
     //add Liquidity
@@ -99,5 +128,16 @@ contract UniswapV2Router {
 
         IUniswapV2Pair(pair).transferFrom(msg.sender, pair, liquidity);
         (amountA, amountB) = IUniswapV2Pair(pair).burn(msg.sender);
+    }
+
+    function swapExactTokensForTokens(uint256 amountIn, address[] calldata path, address to, uint256 deadline)
+        external
+    {
+        require(block.timestamp <= deadline, "Router: EXPIRED");
+        require(path.length == 2, "Router: INVALID_PATH");
+
+        IERC20(path[0]).transferFrom(msg.sender, pairFor(path[0], path[1]), amountIn);
+
+        _swap(path, to);
     }
 }
