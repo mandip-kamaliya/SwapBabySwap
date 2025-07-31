@@ -11,6 +11,7 @@ interface IUniswapV2Pair {
     function approve(address spender, uint256 value) external returns (bool);
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function mint(address to) external returns (uint256);
+    function burn(address to) external returns (uint256 amount0, uint256 amount1);
 }
 
 interface IERC20 {
@@ -25,6 +26,33 @@ contract UniswapV2Router {
     constructor(address _factory, address _Weth) {
         factory = _factory;
         WETH = _Weth;
+    }
+
+    function sortTokens(address tokenA, address tokenB) internal pure returns (address token0, address token1) {
+        require(tokenA != tokenB, "Router: IDENTICAL_ADDRESSES");
+        (token0, token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        require(token0 != address(0), "Router: ZERO_ADDRESS");
+    }
+
+    function pairFor(address tokenA, address tokenB) internal view returns (address pair) {
+        (address token0, address token1) = sortTokens(tokenA, tokenB);
+        // This is a condensed version of the create2 address calculation
+        pair = address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            hex"ff",
+                            factory,
+                            keccak256(abi.encodePacked(token0, token1)),
+                            // This is the init code hash of the Pair contract.
+                            // You would generate this from your specific Pair contract bytecode.
+                            hex"e2635c78278505c2d38592679261352e03938029d20c35467d510ac767b2cb51"
+                        )
+                    )
+                )
+            )
+        );
     }
 
     //add Liquidity
@@ -61,5 +89,15 @@ contract UniswapV2Router {
     {
         (uint256 amountA, uint256 amountB) = _calculateLiquidity(tokenA, tokenB, amountAdesired, amountBdesired);
         liquidity = _addLiquidity(tokenA, tokenB, amountA, amountB);
+    }
+
+    function removeLiquidity(address tokenA, address tokenB, uint256 liquidity)
+        public
+        returns (uint256 amountA, uint256 amountB)
+    {
+        address pair = pairFor(tokenA, tokenB);
+
+        IUniswapV2Pair(pair).transferFrom(msg.sender, pair, liquidity);
+        (amountA, amountB) = IUniswapV2Pair(pair).burn(msg.sender);
     }
 }
