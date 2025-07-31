@@ -1,0 +1,13 @@
+import MockERC20ABI from './abis/MockERC20.json';
+import UniswapV2RouterABI from './abis/UniswapV2Router.json';
+
+
+export const SWAP_BABY_SWAP_CONSTANTS = {
+  
+  ROUTER_ADDRESS: '0x90193C961A926261B756D1E5bb255e67ff9498A1',
+  TOKEN_A_ADDRESS: '0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519',
+  TOKEN_B_ADDRESS: '0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496',
+
+  ROUTER_ABI: UniswapV2RouterABI.abi,
+  TOKEN_ABI: MockERC20ABI.abi,
+};
