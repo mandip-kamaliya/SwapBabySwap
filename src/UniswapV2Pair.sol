@@ -102,4 +102,28 @@ contract UniswapV2Pair is ERC20 {
 
         _update(balance0, balance1);
     }
+
+    function burn(address to) external nonReentrant returns (uint256 amount0, uint256 amount1) {
+        (uint112 _reserve0, uint112 _reserve1) = getReserve();
+        address _token0 = token0; // gas savings
+        address _token1 = token1; // gas savings
+
+        // Get the amount of LP tokens that have been sent to this contract
+        uint256 _liquidity = balanceOf[address(this)];
+
+        // Calculate how much of each token to return based on the user's share of the pool
+        amount0 = (_liquidity * reserve0) / totalSupply;
+        amount1 = (_liquidity * reserve1) / totalSupply;
+        require(amount0 > 0 && amount1 > 0, "Pair: INSUFFICIENT_LIQUIDITY_BURNED");
+
+        // Burn the user's LP tokens and send them their underlying tokens
+        _burn(address(this), _liquidity);
+        IERC20(_token0).transfer(to, amount0);
+        IERC20(_token1).transfer(to, amount1);
+
+        // Update the reserves
+        uint256 balance0 = IERC20(_token0).balanceOf(address(this));
+        uint256 balance1 = IERC20(_token1).balanceOf(address(this));
+        _update(balance0, balance1);
+    }
 }
